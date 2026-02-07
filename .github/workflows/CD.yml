@@ -48,6 +48,13 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Timer states JSON: { [email]: { index, unlockAt } }
+          VITE_TIMER_STATES: ${{ secrets.VITE_TIMER_STATES }}
+          # GitHub config for triggering timer updates
+          VITE_GITHUB_OWNER: ${{ github.repository_owner }}
+          VITE_GITHUB_REPO: ${{ github.event.repository.name }}
+          VITE_GITHUB_PAT: ${{ secrets.TIMER_UPDATE_PAT }}
       
       - name: Setup Pages
         uses: actions/configure-pages@v4

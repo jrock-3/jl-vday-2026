@@ -1,0 +1,65 @@
+# Workflow to update timer state for a specific email and redeploy
+name: Update Timer
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Email to update timer for'
+        required: true
+        type: string
+      reason_index:
+        description: 'The new reason index'
+        required: true
+        type: string
+      unlock_time:
+        description: 'The new unlock timestamp (ms since epoch)'
+        required: true
+        type: string
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Update timer state JSON
+        id: update-state
+        env:
+          CURRENT_STATE: ${{ secrets.VITE_TIMER_STATES }}
+          INPUT_EMAIL: ${{ inputs.email }}
+          INPUT_INDEX: ${{ inputs.reason_index }}
+          INPUT_UNLOCK: ${{ inputs.unlock_time }}
+        run: |
+          # Update state for the specific email using Node.js
+          NEW_STATE=$(node -e "
+            const current = JSON.parse(process.env.CURRENT_STATE || '{}');
+            const email = process.env.INPUT_EMAIL;
+            const index = parseInt(process.env.INPUT_INDEX);
+            const unlockAt = parseInt(process.env.INPUT_UNLOCK);
+            
+            current[email] = { index, unlockAt };
+            
+            console.log(JSON.stringify(current));
+          ")
+          
+          echo "new_state=$NEW_STATE" >> $GITHUB_OUTPUT
+
+      - name: Update VITE_TIMER_STATES secret
+        uses: gliech/create-github-secret-action@v1
+        with:
+          name: VITE_TIMER_STATES
+          value: ${{ steps.update-state.outputs.new_state }}
+          pa_token: ${{ secrets.TIMER_UPDATE_PAT }}
+
+      - name: Trigger CD workflow to redeploy
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: CD.yml
+          token: ${{ secrets.TIMER_UPDATE_PAT }}
