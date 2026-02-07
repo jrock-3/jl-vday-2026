@@ -1,70 +1,48 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: Deploy to GitHub Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches: ['main']
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets the GITHUB_TOKEN permissions to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow one concurrent deployment
 concurrency:
   group: 'pages'
   cancel-in-progress: true
 
 jobs:
-  # Single deploy job since we're just deploying
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
       
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      # dotenv-vault@1.26.1 (current @latest) still uses @oclif/screen@^1, which is depreciated
-      - name: Download .env file
-        run: |
-          npx -y dotenv-vault@latest pull production --dotenvMe=${{ secrets.DOTENV_ME }}
-          mv .env.production .env
-
-      - name: Build
-        run: npm run build
+      - run: npm run build
         env:
-          # Timer states JSON: { [email]: { index, unlockAt } }
+          VITE_REASONS: ${{ secrets.VITE_REASONS }}
           VITE_TIMER_STATES: ${{ secrets.VITE_TIMER_STATES }}
-          # GitHub config for triggering timer updates
           VITE_GITHUB_OWNER: ${{ github.repository_owner }}
           VITE_GITHUB_REPO: ${{ github.event.repository.name }}
           VITE_GITHUB_PAT: ${{ secrets.TIMER_UPDATE_PAT }}
       
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - uses: actions/configure-pages@v4
       
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
-          # Upload dist folder
           path: './dist'
       
-      - name: Deploy to GitHub Pages
+      - uses: actions/deploy-pages@v4
         id: deployment
-        uses: actions/deploy-pages@v4

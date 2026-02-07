@@ -1,72 +1,58 @@
-// Timer state management
-
-export const DAY_MS = 24 * 60 * 60 * 1000;
-const CACHE_KEY = "timerCache";
+export const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface TimerState {
-  index: number;
-  unlockAt: number;
+  index: number
+  unlockAt: number
 }
 
-type StateMap = Record<string, TimerState>;
+type StateMap = Record<string, TimerState>
 
-// Parse build-time state from env
-const buildTimeStates: StateMap = (() => {
-  try {
-    return JSON.parse(import.meta.env.VITE_TIMER_STATES || "{}");
-  } catch {
-    return {};
-  }
-})();
+const CACHE_KEY = "timerCache"
 
-// Get cached states from localStorage
+const buildStates: StateMap = (() => {
+  try { return JSON.parse(import.meta.env.VITE_TIMER_STATES || "{}") }
+  catch { return {} }
+})()
+
 const getCache = (): StateMap => {
-  try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-};
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}") }
+  catch { return {} }
+}
 
-// Save state to cache
 export const saveState = (email: string, state: TimerState) => {
   try {
-    const cache = getCache();
-    cache[email] = state;
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    const cache = getCache()
+    cache[email] = state
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
   } catch {}
-};
+}
 
-// Get state for email (cache > build-time > default)
 export const getState = (email: string): TimerState => {
-  const cache = getCache();
-  const build = buildTimeStates[email];
+  const cache = getCache()
+  const build = buildStates[email]
   
   if (cache[email] && (!build || cache[email].index >= build.index)) {
-    return cache[email];
+    return cache[email]
   }
   
-  if (build) return build;
+  if (build) return build
   
-  // New user - create and cache default
-  const defaultState = { index: 0, unlockAt: Date.now() + DAY_MS };
-  saveState(email, defaultState);
-  return defaultState;
-};
+  const defaultState = { index: 0, unlockAt: Date.now() + DAY_MS }
+  saveState(email, defaultState)
+  return defaultState
+}
 
-// Format time remaining
 export const formatTime = (now: number, unlockAt: number) => {
-  const secs = Math.max(0, Math.floor((unlockAt - now) / 1000));
-  const h = String(Math.floor(secs / 3600)).padStart(2, "0");
-  const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
-  const s = String(secs % 60).padStart(2, "0");
-  return `${h}:${m}:${s}`;
-};
+  const secs = Math.max(0, Math.floor((unlockAt - now) / 1000))
+  const h = String(Math.floor(secs / 3600)).padStart(2, "0")
+  const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0")
+  const s = String(secs % 60).padStart(2, "0")
+  return `${h}:${m}:${s}`
+}
 
-// Trigger GitHub workflow to sync state
 export const syncToGitHub = async (email: string, index: number, unlockAt: number) => {
-  const { VITE_GITHUB_OWNER: owner, VITE_GITHUB_REPO: repo, VITE_GITHUB_PAT: token } = import.meta.env;
-  if (!owner || !repo || !token) return false;
+  const { VITE_GITHUB_OWNER: owner, VITE_GITHUB_REPO: repo, VITE_GITHUB_PAT: token } = import.meta.env
+  if (!owner || !repo || !token) return false
 
   try {
     const res = await fetch(
@@ -83,12 +69,11 @@ export const syncToGitHub = async (email: string, index: number, unlockAt: numbe
           inputs: { email, reason_index: String(index), unlock_time: String(unlockAt) },
         }),
       }
-    );
-    return res.ok;
+    )
+    return res.ok
   } catch {
-    return false;
+    return false
   }
-};
+}
 
-// Reasons list
-export const reasons: string[] = (import.meta.env.VITE_REASONS || "").split("\n").filter(Boolean);
+export const reasons: string[] = (import.meta.env.VITE_REASONS || "").split("\n").filter(Boolean)

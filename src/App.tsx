@@ -3,6 +3,7 @@ import './App.css'
 import { DAY_MS, getState, saveState, formatTime, syncToGitHub, reasons } from './lib/timer'
 
 const IS_DEV = import.meta.env.DEV
+const TEST_EMAIL = "1234@fake.out"
 
 const HEARTS = {
   main: "https://em-content.zobj.net/source/telegram/386/sparkling-heart_1f496.webp",
@@ -18,7 +19,7 @@ const HEARTS = {
   ],
 }
 
-const FloatingHearts = () => {
+function FloatingHearts() {
   const hearts = useMemo(() => 
     Array.from({ length: 10 }, (_, i) => ({
       img: HEARTS.floating[i % HEARTS.floating.length],
@@ -40,15 +41,22 @@ const FloatingHearts = () => {
   )
 }
 
-const DevTools = ({ onSkip, onReset, unlocked, viewing, total }: { 
-  onSkip: () => void, onReset: () => void, unlocked: number, viewing: number, total: number 
-}) => {
+function DevTools({ email, unlocked, viewing, total, onSkip, onResetTo, onUnlockAll, onResetAll }: {
+  email: string
+  unlocked: number
+  viewing: number
+  total: number
+  onSkip: () => void
+  onResetTo: () => void
+  onUnlockAll: () => void
+  onResetAll: () => void
+}) {
   const [open, setOpen] = useState(false)
-  if (!IS_DEV) return null
+  if (!IS_DEV && email !== TEST_EMAIL) return null
   
   return (
     <div className="dev-toolbar">
-      <button className="dev-toggle" onClick={() => setOpen(!open)}>🛠️ Dev</button>
+      <button className="dev-toggle" onClick={() => setOpen(!open)}>🛠️</button>
       {open && (
         <div className="dev-panel">
           <div className="dev-info">
@@ -57,7 +65,9 @@ const DevTools = ({ onSkip, onReset, unlocked, viewing, total }: {
           </div>
           <div className="dev-buttons">
             <button onClick={onSkip} className="dev-btn">⏩ Skip Timer</button>
-            <button onClick={onReset} className="dev-btn dev-btn-danger">🗑️ Reset All</button>
+            <button onClick={onResetTo} className="dev-btn">↩️ Reset to #{viewing}</button>
+            <button onClick={onUnlockAll} className="dev-btn">🔓 Unlock All</button>
+            <button onClick={onResetAll} className="dev-btn dev-btn-danger">🗑️ Clear Data</button>
           </div>
         </div>
       )}
@@ -66,14 +76,13 @@ const DevTools = ({ onSkip, onReset, unlocked, viewing, total }: {
 }
 
 export default function App() {
-  const [email, setEmail] = useState(() => localStorage.getItem("email") || "")
+  const [email, setEmail] = useState(() => localStorage.getItem("email") || (IS_DEV ? TEST_EMAIL : ""))
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("email"))
   const [unlocked, setUnlocked] = useState(0)
   const [unlockAt, setUnlockAt] = useState(() => Date.now() + DAY_MS)
   const [now, setNow] = useState(() => Date.now())
   const [viewing, setViewing] = useState(0)
 
-  // Load state on login
   useEffect(() => {
     if (loggedIn && email) {
       const state = getState(email)
@@ -83,18 +92,17 @@ export default function App() {
     }
   }, [loggedIn, email])
 
-  // Tick every second
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
 
+  const last = Math.max(0, reasons.length - 1)
   const canUnlock = now >= unlockAt
-  const lastIndex = Math.max(0, reasons.length - 1)
-  const atEnd = viewing >= lastIndex
-  const allUnlocked = unlocked >= lastIndex
-  const canNext = !atEnd && (viewing < unlocked || (viewing === unlocked && canUnlock))
+  const atEnd = viewing >= last
+  const allUnlocked = unlocked >= last
   const canPrev = viewing > 0
+  const canNext = !atEnd && (viewing < unlocked || (viewing === unlocked && canUnlock))
 
   const login = () => {
     if (!email.trim()) return
@@ -108,37 +116,49 @@ export default function App() {
     setLoggedIn(false)
   }
 
-  const navigate = (dir: number) => {
+  const go = (dir: number) => {
     const next = viewing + dir
     if (next < 0 || next >= reasons.length) return
-
     if (next > unlocked) {
-      const newUnlock = Date.now() + DAY_MS
-      saveState(email, { index: next, unlockAt: newUnlock })
+      const t = Date.now() + DAY_MS
+      saveState(email, { index: next, unlockAt: t })
       setUnlocked(next)
-      setUnlockAt(newUnlock)
-      syncToGitHub(email, next, newUnlock)
+      setUnlockAt(t)
+      syncToGitHub(email, next, t)
     }
     setViewing(next)
   }
 
-  const skipTimer = () => {
-    const newUnlock = Date.now() - 1000
-    setUnlockAt(newUnlock)
-    saveState(email, { index: unlocked, unlockAt: newUnlock })
+  const devSkip = () => {
+    const t = Date.now() - 1000
+    setUnlockAt(t)
+    saveState(email, { index: unlocked, unlockAt: t })
   }
 
-  const resetAll = () => {
+  const devResetTo = () => {
+    const t = Date.now() + DAY_MS
+    setUnlocked(viewing)
+    setUnlockAt(t)
+    saveState(email, { index: viewing, unlockAt: t })
+  }
+
+  const devUnlockAll = () => {
+    const t = Date.now() - 1000
+    setUnlocked(last)
+    setUnlockAt(t)
+    saveState(email, { index: last, unlockAt: t })
+  }
+
+  const devResetAll = () => {
     localStorage.clear()
     location.reload()
   }
 
-  // Guard against empty reasons
   if (reasons.length === 0) {
     return (
       <div className="card" style={{ margin: '2rem auto', textAlign: 'center' }}>
         <h1>No reasons configured</h1>
-        <p>Please set VITE_REASONS in your environment.</p>
+        <p>Set VITE_REASONS in environment.</p>
       </div>
     )
   }
@@ -163,7 +183,7 @@ export default function App() {
             Let me in! <img src={HEARTS.small} alt="" className="mini-heart" />
           </button>
           <div className="footer-deco">
-            {[0,1,2].map(i => <span key={i} className="deco-heart"><img src={HEARTS.small} alt="" /></span>)}
+            {[0, 1, 2].map(i => <span key={i} className="deco-heart"><img src={HEARTS.small} alt="" /></span>)}
           </div>
         </div>
       </>
@@ -194,8 +214,7 @@ export default function App() {
               <div className="end-message-heart"><img src={HEARTS.grow} alt="" /></div>
               <p className="end-message-title">You made it to the end! 🎉</p>
               <p className="end-message-text">
-                Even though this list is complete, my love for you will never end. 
-                Every day I find new reasons to love you more. Forever yours 💕
+                Even though this list is complete, my love for you will never end.
               </p>
             </div>
           ) : (
@@ -209,8 +228,8 @@ export default function App() {
         </div>
         
         <div className="nav-buttons">
-          <button className="nav-btn" disabled={!canPrev} onClick={() => navigate(-1)}>←</button>
-          <button className="nav-btn" disabled={!canNext} onClick={() => navigate(1)}>→</button>
+          <button className="nav-btn" disabled={!canPrev} onClick={() => go(-1)}>←</button>
+          <button className="nav-btn" disabled={!canNext} onClick={() => go(1)}>→</button>
         </div>
         
         <div className="reason-card">
@@ -225,7 +244,16 @@ export default function App() {
         </div>
       </div>
       
-      <DevTools onSkip={skipTimer} onReset={resetAll} unlocked={unlocked + 1} viewing={viewing + 1} total={reasons.length} />
+      <DevTools
+        email={email}
+        unlocked={unlocked + 1}
+        viewing={viewing + 1}
+        total={reasons.length}
+        onSkip={devSkip}
+        onResetTo={devResetTo}
+        onUnlockAll={devUnlockAll}
+        onResetAll={devResetAll}
+      />
     </>
   )
 }
