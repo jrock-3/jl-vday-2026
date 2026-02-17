@@ -1,4 +1,4 @@
-export const DAY_MS = 24 * 60 * 60 * 1000
+export const HALF_DAY_MS = 12 * 60 * 60 * 1000
 
 export interface TimerState {
   index: number
@@ -37,7 +37,7 @@ export const getState = (email: string): TimerState => {
   
   if (build) return build
   
-  const defaultState = { index: 0, unlockAt: Date.now() + DAY_MS }
+  const defaultState = { index: 0, unlockAt: Date.now() + HALF_DAY_MS }
   saveState(email, defaultState)
   return defaultState
 }

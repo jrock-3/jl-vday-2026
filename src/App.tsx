@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import './App.css'
-import { DAY_MS, getState, saveState, formatTime, syncToGitHub, reasons } from './lib/timer'
+import { HALF_DAY_MS, getState, saveState, formatTime, syncToGitHub, reasons } from './lib/timer'
 
 const IS_DEV = import.meta.env.DEV
 const TEST_EMAIL = "1234@fake.out"
@@ -79,7 +79,7 @@ export default function App() {
   const [email, setEmail] = useState(() => localStorage.getItem("email") || (IS_DEV ? TEST_EMAIL : ""))
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("email"))
   const [unlocked, setUnlocked] = useState(0)
-  const [unlockAt, setUnlockAt] = useState(() => Date.now() + DAY_MS)
+  const [unlockAt, setUnlockAt] = useState(() => Date.now() + HALF_DAY_MS)
   const [now, setNow] = useState(() => Date.now())
   const [viewing, setViewing] = useState(0)
 
@@ -120,7 +120,7 @@ export default function App() {
     const next = viewing + dir
     if (next < 0 || next >= reasons.length) return
     if (next > unlocked) {
-      const t = Date.now() + DAY_MS
+      const t = Date.now() + HALF_DAY_MS
       saveState(email, { index: next, unlockAt: t })
       setUnlocked(next)
       setUnlockAt(t)
@@ -136,7 +136,7 @@ export default function App() {
   }
 
   const devResetTo = () => {
-    const t = Date.now() + DAY_MS
+    const t = Date.now() + HALF_DAY_MS
     setUnlocked(viewing)
     setUnlockAt(t)
     saveState(email, { index: viewing, unlockAt: t })
